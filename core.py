@@ -1,17 +1,23 @@
 import openmc
-from mat import  water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat, Dy2O3TiO2_mat, B4C_mat, AbstractUO22
+from mat import  water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat, Dy2O3TiO2_mat, B4C_mat
 from math import sqrt
 from config import *
 import random
-def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ring=False, outer_ring_enr=False, verbose=True):
+top_surf=openmc.ZPlane(z0=177.5)
+bottom_surf=openmc.ZPlane(z0=-177.5)
+water_b_surf = openmc.hexagonal_prism(edge_length=23.6 / sqrt(3), orientation='y', boundary_type='transmission')
+basket_cell = openmc.Cell(fill=water_mat, region=water_b_surf & +bottom_surf & -top_surf)
+basket_universe = openmc.Universe(cells=[basket_cell])
+top_surf = openmc.ZPlane(z0=177.5)
+bottom_surf = openmc.ZPlane(z0=-177.5)
+top_surf.boundary_type = 'reflective'
+bottom_surf.boundary_type = 'reflective'
+def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5inner_ring=False,  outer_ring=False, outer_ring_enr=False, verbose=True):
 
      #if outer_ring and not outer_ring_enr:
          #raise Exception('Outer ring enrichment must be set')
 
-    top_surf=openmc.ZPlane(z0=176.5)
-    bottom_surf=openmc.ZPlane(z0=-176.5)
-    top_surf.boundary_type='reflective'
-    bottom_surf.boundary_type='reflective'
+
 
     UO2_mat1 = AbstractUO2(enr).mat
     UO2_mat2=AbstractUO2(enr_tvegs).mat
@@ -27,7 +33,6 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ri
 
     else:
         UO2_mat2 = UO2_mat1
-
     if outer_ring:
         UO2_mat3 = AbstractUO2(outer_ring_enr).mat
     else:
@@ -52,7 +57,7 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ri
     tvel_helium_upper_surf=openmc.ZCylinder(r=r1_tvel_upper)
     tvel_cladding_upper_surf=openmc.ZCylinder(r=r2_tvel_upper)
 
-    water_surf=openmc.hexagonal_prism(edge_length=1.275/sqrt(3), orientation='y', boundary_type='transmission')
+    water_surf=openmc.hexagonal_prism(edge_length=1.275/sqrt(3), orientation='x', boundary_type='transmission')
 
 
 
@@ -73,11 +78,21 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ri
     tvel3_helium2_cell=openmc.Cell(fill=helium_mat, region=+tvel_fuel_surf & -tvel_helium2_surf  & +bottom_surf & -top_surf)
     tvel3_cladding_cell=openmc.Cell(fill=E110_mat, region=+tvel_helium2_surf & -tvel_cladding_surf & +bottom_surf & -top_surf)
     tvel3_water_cell=openmc.Cell(fill=water_mat, region=+tvel_cladding_surf & water_surf & +bottom_surf & -top_surf)
+
+    #tvel4_helium1_cell = openmc.Cell(fill=helium_mat, region=-tvel_helium_surf & +bottom_surf & -top_surf)
+   # tvel4_fuel_cell = openmc.Cell(fill=UO2_mat4, region=+tvel_helium_surf & -tvel_fuel_surf & +bottom_surf & -top_surf)
+    #tvel4_helium2_cell = openmc.Cell(fill=helium_mat,
+           #                           region=+tvel_fuel_surf & -tvel_helium2_surf & +bottom_surf & -top_surf)
+   # tvel4_cladding_cell = openmc.Cell(fill=E110_mat,
+               #                        region=+tvel_helium2_surf & -tvel_cladding_surf & +bottom_surf & -top_surf)
+   # tvel4_water_cell = openmc.Cell(fill=water_mat, region=+tvel_cladding_surf & water_surf & +bottom_surf & -top_surf)
     #TODO Add tvel3
 
     tvel1_universe=openmc.Universe(cells=[tvel1_helium1_cell, tvel1_fuel_cell, tvel1_helium2_cell, tvel1_cladding_cell, tvel1_water_cell])
     tvel2_universe=openmc.Universe(cells=[tvel2_helium1_cell, tvel2_fuel_cell, tvel2_helium2_cell, tvel2_cladding_cell, tvel2_water_cell])
     tvel3_universe=openmc.Universe(cells=[tvel3_helium1_cell, tvel3_fuel_cell, tvel3_helium2_cell, tvel3_cladding_cell, tvel3_water_cell])
+    #tvel4_universe = openmc.Universe(cells=[tvel4_helium1_cell, tvel4_fuel_cell, tvel4_helium2_cell, tvel4_cladding_cell, tvel4_water_cell])
+
 
     if rods_inserted:
         guide_mat = B4C_mat
@@ -90,13 +105,13 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ri
     guide_cladding_cell=openmc.Cell(fill=E635_mat, region=-cyz_cladding_surf & +cyz_coolant_surf & +bottom_surf & -top_surf )
     guide_water2_cell=openmc.Cell(fill=water_mat, region=+cyz_cladding_surf & water_surf & +bottom_surf & -top_surf)
 
-    guide_universe=openmc.Universe(cells=[guide_absorber_cell, guide_steel_cell, guide_water1_cell, guide_water1_cell, guide_cladding_cell, guide_water2_cell])
+    guide_universe=openmc.Universe(cells=[guide_absorber_cell, guide_steel_cell, guide_water1_cell, guide_water1_cell, guide_cladding_cell, guide_water2_cell] )
     print('ghghhgg', guide_mat )
     central_cell1=openmc.Cell(fill=water_mat, region=-central_surf1 & +bottom_surf & -top_surf)
     central_cell2=openmc.Cell(fill=E635_mat, region=+central_surf1 & -central_surf2 & +bottom_surf & -top_surf)
     central_water_cell=openmc.Cell(fill=water_mat, region= +central_surf2 & water_surf & +bottom_surf & -top_surf)
 
-    central_universe=openmc.Universe(cells=[central_cell1, central_cell2, central_water_cell])
+    central_universe=openmc.Universe(cells=[central_cell1, central_cell2, central_water_cell],)
 
     all_water_cell=openmc.Cell(fill=water_mat)
     water_universe=openmc.Universe(cells=[all_water_cell,])
@@ -105,30 +120,36 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False,  outer_ri
     lat.center = (0.0, 0.0)
     lat.pitch = [1.275]
     lat.outer = water_universe
-    lat.orientation = 'x'
+    lat.orientation = 'y'
 
-    firts_ring = [tvel3_universe] * 60
-    second_ring = [tvel3_universe] + [tvel1_universe] * 8
+    firts_ring = [tvel3_universe] * 60 #60
+    second_ring = [tvel3_universe] + [tvel1_universe] * 8 #54
     second_ring*=6
-    third_ring = [tvel1_universe] * 4 + [tvel2_universe] + [tvel1_universe] * 3
-    third_ring*=6
-    four_ring = [tvel1_universe] * 42
-    fife_ring = [tvel1_universe] * 3 + [guide_universe] + [tvel1_universe] * 2
-    fife_ring*=6
-    six_ring = [guide_universe] + [tvel1_universe] * 4
+    if tvegs_5inner_ring:
+     third_ring =[tvel1_universe]*48
+    else:
+     third_ring = [tvel2_universe]+[tvel1_universe]*7 #48
+     third_ring*=6
+    four_ring = [tvel1_universe] * 42 #42
+    fife_ring =[tvel1_universe]*3+[guide_universe] + [tvel1_universe]*5 +[guide_universe]+[tvel1_universe]*5+ [guide_universe]+[tvel1_universe]*5 +[guide_universe] +[tvel1_universe]*5 +[guide_universe] + [tvel1_universe]*5 +[guide_universe] +[tvel1_universe]*2 #36
+    six_ring = [guide_universe] +[tvel1_universe]*4 #30
     six_ring*=6
-    seven_ring = [tvel1_universe] + [tvel2_universe] + [tvel1_universe] * 2
-    seven_ring*=6
-    eight_ring = [tvel1_universe] * 2 + [guide_universe]
+    if tvegs_5inner_ring:
+     seven_ring=[tvel1_universe]*3+[tvel2_universe]
+     seven_ring*=6
+    else:
+     seven_ring=[tvel1_universe]*3+[tvel2_universe]+[tvel1_universe]*4
+     seven_ring*=3
+    eight_ring = [tvel1_universe]  + [guide_universe] +[tvel1_universe] #18
     eight_ring*=6
-    nint_ring = [tvel1_universe] * 12
+    nint_ring = [tvel1_universe] * 12 #12
     ten_ring = [tvel1_universe] * 6
     inner_ring = [central_universe]
     lat.universes = [firts_ring, second_ring, third_ring, four_ring, fife_ring, six_ring, seven_ring, eight_ring, nint_ring, ten_ring, inner_ring]
-    outer_surf=openmc.hexagonal_prism(edge_length=23.6/sqrt(3), orientation='x',  boundary_type='reflective')
+    outer_surf=openmc.hexagonal_prism(edge_length=23.6/sqrt(3), orientation='y',  boundary_type='transmission')
     TVS_cell = openmc.Cell(fill=lat, region=outer_surf & +bottom_surf & -top_surf)
     TVS_universe=openmc.Universe(cells=[TVS_cell, ])
     if verbose:
         print(lat)
-    return TVS_universe, [UO2_mat1, UO2_mat2, UO2_mat3, guide_mat]
+    return TVS_universe, list(set((UO2_mat1, UO2_mat2, UO2_mat3))) + [guide_mat]
 
