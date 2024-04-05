@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<settings>
+  <run_mode>eigenvalue</run_mode>
+  <particles>50000</particles>
+  <batches>100</batches>
+  <inactive>20</inactive>
+  <max_lost_particles>200</max_lost_particles>
+  <source particle="neutron" strength="1.0" type="independent">
+    <space type="fission">
+      <parameters>-90 -90 -177.5 90 90 177.5</parameters>
+    </space>
+    <time parameters="0 1" type="uniform"/>
+  </source>
+  <temperature_method>interpolation</temperature_method>
+  <trace>1 1 25722</trace>
+  <max_tracks>1000</max_tracks>
+</settings>

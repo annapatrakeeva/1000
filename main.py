@@ -5,7 +5,7 @@ import openmc.model
 from openmc import stats
 from math import sqrt
 import neutronics_material_maker as nmm
-from mat import water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat
+from mat import water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat1, be_mat
 
 openmc.config['cross_sections']='/home/ann/PycharmProjects/endfb-vii.1-hdf5/cross_sections.xml'
 
@@ -17,10 +17,10 @@ from params import GeometryParams
 
 import numpy as np
 if __name__ == "__main__":
-    #top_surf=openmc.ZPlane(z0=177.5)
-    #bottom_surf=openmc.ZPlane(z0=-177.5)
-    #top_surf.boundary_type='reflective'
-    #bottom_surf.boundary_type='reflective'
+    top_surf=openmc.ZPlane(z0=177.5)
+    bottom_surf=openmc.ZPlane(z0=-177.5)
+    top_surf.boundary_type='reflective'
+    bottom_surf.boundary_type='reflective'
 
 
     mats=[]
@@ -64,40 +64,39 @@ if __name__ == "__main__":
         if mat.id not in mats_id:
             mats.append(mat)
             mats_id.append(mat.id)
-    materials = openmc.Materials([ Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat]+mats)
-    all_water2_cell = openmc.Cell(fill=water_mat)
+    materials = openmc.Materials([ Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat1, be_mat]+mats)
+    all_water2_cell = openmc.Cell(fill=basket_mat)
     water2_universe = openmc.Universe(cells=(all_water2_cell, ))
     core_lat = openmc.HexLattice()
     core_lat.center = (0.0, 0.0)
-    core_lat.pitch = [23.6]
+    core_lat.pitch = [11*1.275*sqrt(3)]
     core_lat.outer = water2_universe
     core_lat.orientation = 'x'
-    ring_1=[basket_universe]+[TVS_390GO]+[TVS_39AWU]*4+ [TVS_390GO] #42
-    ring_1*=6
-    ring_2=[TVS_30AV5] + [TVS_22AU] #36
-    ring_2*=18
-    ring_3=[TVS_22AU]+[TVS_13AU]*4 #30
-    ring_3*=6
-    ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU] +[TVS_30AV5] #24
-    ring_4*=6
-    ring_5= [TVS_22AU] + [TVS_13AU]*2 #18
+    #ring_1=[basket_universe]+[TVS_390GO]+[TVS_39AWU]*4+ [TVS_390GO] #42
+    #ring_1*=6
+    #ring_2=[TVS_30AV5] + [TVS_22AU] #36
+    #ring_2*=18
+    #ring_3=[TVS_22AU]+[TVS_13AU]*4 #30
+    #ring_3*=6
+    #ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU] +[TVS_30AV5] #24
+    #ring_4*=6
+    ring_5= [TVS_22AU] + [TVS_13AU]+[TVS_13AU] #18
     ring_5*=6
     ring_6= [TVS_30AV5] + [TVS_22AU] #12
     ring_6*=6
     ring_7=[TVS_13AU]*6
     ring_8=[TVS_30AV5]
-    core_lat.universes = [ring_1, ring_2, ring_3, ring_4, ring_5, ring_6, ring_7, ring_8]
+    core_lat.universes = [ ring_5, ring_6, ring_7, ring_8]
 
-    outer2_surf = openmc.ZCylinder(r=178, boundary_type='vacuum')
+    outer2_surf = openmc.model.HexagonalPrism(edge_length=3.7*core_lat.pitch[0], orientation='x', boundary_type='reflective')
     core_cell = openmc.Cell(fill=core_lat, region=-outer2_surf & +bottom_surf & -top_surf)
-
     materials.export_to_xml()
     params = GeometryParams()
     geometry=openmc.Geometry()
     geometry.root_universe=openmc.Universe( universe_id=0, cells=[core_cell,])
     settings=openmc.Settings()
     settings.temperature={'method': 'interpolation'}
-    uniform_dist = stats.Box([-178, -178, -355 / 2], [178, 178, 355 / 2], only_fissionable=True)
+    uniform_dist = stats.Box([-90, -90, -355 / 2], [90, 90, 355 / 2], only_fissionable=True)
     source = openmc.source.Source(space=uniform_dist)
     source.time = stats.Uniform(0, 1)
     settings.source = source
@@ -112,10 +111,22 @@ if __name__ == "__main__":
     tallies_file += (fiss_rate, abs_rate, n_rate)
     tallies_file.export_to_xml()
     settings.batches = 100
-    settings.particles = 80000
+    settings.particles = 50000
     settings.inactive = 20
+    settings.trace=(1, 1, 25722)
+    settings.max_tracks = 1000
+    #settings.tracks=[
+    #    (1, 1, 28479),
+    #    (1, 1, 24983)
+    #]
+    #trace2=settings.trace=(1, 1, 24983)
+    #trace3=settings.trace=(1, 1, 20593)
+    #settings_file+=(trace1, trace2, trace3)
+    #trace_file.export_to_xml()
+    settings.max_lost_particles=200
+    #settings.max_write_lost_particles
     #power = (3000.0e6)/163  # watts
-    #model = openmc.Model(geometry, materials, settings)
+    model = openmc.Model(geometry, materials, settings)
     #chain_file = '/home/ann/PycharmProjects/1000/library/chain_endfb71_pwr.xml'
     #operator = openmc.deplete.CoupledOperator(model, chain_file)
     #timesteps = [ (2,'MWd/kg'), (4,'MWd/kg'), (6,'MWd/kg'), (8,'MWd/kg'), (10,'MWd/kg'), (12,'MWd/kg'), (14,'MWd/kg'), (15,'MWd/kg'), (20,'MWd/kg'), (40, 'MWd/kg')]  # days
@@ -134,7 +145,7 @@ if __name__ == "__main__":
 
 
 
-    colors = {water_mat: (32, 178, 170)}
+    colors = {water_mat: (32, 178, 170), water_mat1: (124, 252, 0)}
     color_data = dict(color_by='material', colors=colors)
     width = np.array([24.6 *16, 24.6 * 16, ])
     scale = 1
@@ -152,7 +163,7 @@ if __name__ == "__main__":
     plots = [openmc.Plot(), openmc.Plot(), openmc.Plot(), openmc.Plot(), ]
     for i in range(4):
         plots[i].width = width
-        plots[i].pixels = (6000, 6000)
+        plots[i].pixels = (1000, 1000)
         plots[i].basis = 'xz'
         plots[i].color_by = 'material'
         plots[i].colors = colors
@@ -164,10 +175,11 @@ if __name__ == "__main__":
 
 
 
-
+    #track=openmc.Track[('particle_2_50937.h5')]
+    #print(track)
     plots.export_to_xml()
     settings.export_to_xml()
     geometry.export_to_xml()
     #model.export_to_xml('model.xml')
     openmc.plot_geometry()
-    #openmc.run()
+    openmc.run(tracks=True)
