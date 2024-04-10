@@ -3,10 +3,10 @@ from mat import  water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_
 from math import sqrt
 from config import *
 import random
-#top_surf=openmc.ZPlane(z0=177.5)
-#bottom_surf=openmc.ZPlane(z0=-177.5)
-#top_surf.boundary_type = 'reflective'
-#bottom_surf.boundary_type = 'reflective'
+top_surf=openmc.ZPlane(z0=177.5)
+bottom_surf=openmc.ZPlane(z0=-177.5)
+top_surf.boundary_type = 'reflective'
+bottom_surf.boundary_type = 'reflective'
 water_b_surf = openmc.model.HexagonalPrism(edge_length=11*1.275, orientation='y', boundary_type='transmission')
 basket_cell = openmc.Cell(fill=basket_mat, region=-water_b_surf )
 basket_universe = openmc.Universe(cells=[basket_cell])
@@ -16,7 +16,10 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
      #if outer_ring and not outer_ring_enr:
          #raise Exception('Outer ring enrichment must be set')
 
-
+    control0_surf=openmc.ZPlane(z0=-177.5)
+    control0_surf.boundary_type = 'reflective'
+    control1_surf=openmc.ZPlane(z0=106.3)
+    control2_surf=openmc.ZPlane(z0=136.3)
 
     UO2_mat1 = AbstractUO2(enr).mat
     UO2_mat2=AbstractUO2(enr_tvegs).mat
@@ -50,12 +53,19 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
     cyz_coolant_surf=openmc.ZCylinder(r=r3_guide)
     cyz_cladding_surf=openmc.ZCylinder(r=r4_guide)
 
-    tvel_helium_lower_surf=openmc.ZCylinder(r=r1_tvel_low)
-    tvel_cladding_lower_surf=openmc.ZCylinder(r=r2_tvel_low)
+    cyz10_absorber_surf=openmc.ZCylinder(r=r1_guide)
+    cyz10_steel_surf=openmc.ZCylinder(r=r2_guide)
+    cyz10_coolant_surf=openmc.ZCylinder(r=r3_guide)
+    cyz10_cladding_surf=openmc.ZCylinder(r=r4_guide)
 
-    tvel_helium_upper_surf=openmc.ZCylinder(r=r1_tvel_upper)
-    tvel_cladding_upper_surf=openmc.ZCylinder(r=r2_tvel_upper)
-
+    cyz10_absorber0_cell=openmc.Cell(fill=water_mat, region=-cyz10_absorber_surf & +control0_surf & -control1_surf)
+    cyz10_absorber1_cell=openmc.Cell(fill=Dy2O3TiO2_mat, region=-cyz10_absorber_surf & +control1_surf & -control2_surf)
+    cyz10_absorber2_cell = openmc.Cell(fill=B4C_mat, region=-cyz10_absorber_surf & +control2_surf )
+    cyz10_steel_cell = openmc.Cell(fill=steel_mat, region=-cyz10_steel_surf & +cyz10_absorber_surf)
+    cyz10_water1_cell = openmc.Cell(fill=water_mat, region=-cyz10_coolant_surf & +cyz10_steel_surf)
+    cyz10_cladding_cell = openmc.Cell(fill=E635_mat, region=-cyz10_cladding_surf & +cyz10_coolant_surf)
+    cyz10_water2_cell = openmc.Cell(fill=water_mat, region=+cyz10_cladding_surf)
+    cyz10_universe = openmc.Universe(cells=[cyz10_absorber0_cell, cyz10_absorber1_cell, cyz10_absorber2_cell, cyz10_steel_cell, cyz10_water1_cell, cyz10_water1_cell, cyz10_cladding_cell, cyz10_water2_cell])
     #water_surf=openmc.model.HexagonalPrism(edge_length=1.275/sqrt(3), orientation='x', boundary_type='transmission')
 
 
@@ -92,19 +102,18 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
     #tvel4_universe = openmc.Universe(cells=[tvel4_helium1_cell, tvel4_fuel_cell, tvel4_helium2_cell, tvel4_cladding_cell, tvel4_water_cell])
 
 
-    if rods_inserted:
-        guide_mat = B4C_mat
-    else:
-        guide_mat = water_mat
 
-    guide_absorber_cell=openmc.Cell(fill=guide_mat, region=-cyz_absorber_surf )
+    guide_absorber_cell=openmc.Cell(fill=water_mat, region=-cyz_absorber_surf )
     guide_steel_cell=openmc.Cell(fill=steel_mat, region=-cyz_steel_surf & +cyz_absorber_surf )
     guide_water1_cell=openmc.Cell(fill=water_mat, region=-cyz_coolant_surf & +cyz_steel_surf )
     guide_cladding_cell=openmc.Cell(fill=E635_mat, region=-cyz_cladding_surf & +cyz_coolant_surf )
     guide_water2_cell=openmc.Cell(fill=water_mat, region=+cyz_cladding_surf )
 
     guide_universe=openmc.Universe(cells=[guide_absorber_cell, guide_steel_cell, guide_water1_cell, guide_water1_cell, guide_cladding_cell, guide_water2_cell] )
-    print('ghghhgg', guide_mat )
+    if rods_inserted:
+     guide_1_universe = cyz10_universe
+    else:
+     guide_1_universe = guide_universe
     central_cell1=openmc.Cell(fill=water_mat, region=-central_surf1 )
     central_cell2=openmc.Cell(fill=E635_mat, region=+central_surf1 & -central_surf2 )
     central_water_cell=openmc.Cell(fill=water_mat, region= +central_surf2 )
@@ -129,10 +138,10 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
      third_ring = [tvel2_universe] + [tvel1_universe] * 7  # 48
      third_ring *= 6
     four_ring = [tvel1_universe] * 42  # 42
-    fife_ring = [tvel1_universe] * 3 + [guide_universe] + [tvel1_universe] * 5 + [guide_universe] + [
-    tvel1_universe] * 5 + [guide_universe] + [tvel1_universe] * 5 + [guide_universe] + [tvel1_universe] * 5 + [
-                  guide_universe] + [tvel1_universe] * 5 + [guide_universe] + [tvel1_universe] * 2  # 36
-    six_ring = [guide_universe] + [tvel1_universe] * 4  # 30
+    fife_ring = [tvel1_universe] * 3 + [guide_1_universe] + [tvel1_universe] * 5 + [guide_1_universe] + [
+    tvel1_universe] * 5 + [guide_1_universe] + [tvel1_universe] * 5 + [guide_1_universe] + [tvel1_universe] * 5 + [
+                  guide_1_universe] + [tvel1_universe] * 5 + [guide_1_universe] + [tvel1_universe] * 2  # 36
+    six_ring = [guide_1_universe] + [tvel1_universe] * 4  # 30
     six_ring *= 6
     if tvegs_5inner_ring:
      seven_ring = [tvel1_universe] * 3 + [tvel2_universe]
@@ -140,7 +149,7 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
     else:
      seven_ring = [tvel1_universe] * 3 + [tvel2_universe] + [tvel1_universe] * 4
      seven_ring *= 3
-    eight_ring = [tvel1_universe] + [guide_universe] + [tvel1_universe]  # 18
+    eight_ring = [tvel1_universe] + [guide_1_universe] + [tvel1_universe]  # 18
     eight_ring *= 6
     nint_ring = [tvel1_universe] * 12  # 12
     ten_ring = [tvel1_universe] * 6
@@ -151,9 +160,5 @@ def get_TVS_universe(enr, enr_tvegs, rods_inserted=False, tvegs=False, tvegs_5in
     TVS_universe=openmc.Universe(cells=[TVS_cell])
     if verbose:
         print(lat)
-    return TVS_universe, list(set((UO2_mat1, UO2_mat2, UO2_mat3))) + [guide_mat]
-    geometry.export_to_xml()
-    #model.export_to_xml('model.xml')
-    openmc.plot_geometry()
-    openmc.run()
+    return TVS_universe, list(set((UO2_mat1, UO2_mat2, UO2_mat3)))
 

@@ -5,7 +5,7 @@ import openmc.model
 from openmc import stats
 from math import sqrt
 import neutronics_material_maker as nmm
-from mat import water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat1, be_mat
+from mat import water_mat,  AbstractUO2, Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat1, be_mat, Dy2O3TiO2_mat
 
 openmc.config['cross_sections']='/home/ann/PycharmProjects/endfb-vii.1-hdf5/cross_sections.xml'
 
@@ -26,8 +26,8 @@ if __name__ == "__main__":
     mats=[]
     mats_id=[]
     TVS_30AV5, mats_30AV5=get_TVS_universe(3.0, 2.4, False, 1, 0,False, 0, 0)
-    mats+=mats_30AV5
-    mats_id=[mat.id for mat in mats]
+    mats += mats_30AV5
+    mats_id = [mat.id for mat in mats]
     TVS_13AU, mats_13AU =get_TVS_universe(1.3, 0, False, 0, False, False,  0, 0)
     for mat in mats_13AU:
         if mat.id not in mats_id:
@@ -36,6 +36,11 @@ if __name__ == "__main__":
 
     TVS_22AU, mats_22AU=get_TVS_universe(2.2, 0, False, 0, False, False, False, 0)
     for mat in mats_22AU:
+        if mat.id not in mats_id:
+            mats.append(mat)
+            mats_id.append(mat.id)
+    TVS_22AU_10, mats_22AU_10 = get_TVS_universe(2.2, 0, 1, 0, False, False, False, 0)
+    for mat in mats_22AU_10:
         if mat.id not in mats_id:
             mats.append(mat)
             mats_id.append(mat.id)
@@ -64,7 +69,7 @@ if __name__ == "__main__":
         if mat.id not in mats_id:
             mats.append(mat)
             mats_id.append(mat.id)
-    materials = openmc.Materials([ Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat1, be_mat]+mats)
+    materials = openmc.Materials([ Gd2O3_mat, helium_mat, E110_mat, E635_mat, steel_mat,  B4C_mat, basket_mat, water_mat, be_mat, Dy2O3TiO2_mat]+mats)
     all_water2_cell = openmc.Cell(fill=basket_mat)
     water2_universe = openmc.Universe(cells=(all_water2_cell, ))
     core_lat = openmc.HexLattice()
@@ -78,7 +83,7 @@ if __name__ == "__main__":
     ring_2*=18
     ring_3=[TVS_22AU]+[TVS_13AU]*4 #30
     ring_3*=6
-    ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU] +[TVS_30AV5] #24
+    ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU_10] +[TVS_30AV5] #24
     ring_4*=6
     ring_5= [TVS_22AU] + [TVS_13AU]+[TVS_13AU] #18
     ring_5*=6
@@ -88,12 +93,21 @@ if __name__ == "__main__":
     ring_8=[TVS_30AV5]
     core_lat.universes = [ring_1,  ring_2, ring_3, ring_4, ring_5, ring_6, ring_7, ring_8]
 
-    outer2_surf = openmc.model.HexagonalPrism(edge_length=8*core_lat.pitch[0], orientation='x', boundary_type='white')
-    core_cell = openmc.Cell(fill=core_lat, region=-outer2_surf & +bottom_surf & -top_surf)
+    outer2_surf = openmc.ZCylinder(r=173.5, boundary_type='vacuum')
+
+    core_cell = openmc.Cell(fill=core_lat, region=-outer2_surf  & -top_surf & +bottom_surf )
+    coolant=openmc.ZCylinder(r=174.5)
+    barrel=openmc.ZCylinder(r=181)
+    coolant2=openmc.ZCylinder(r=206.8)
+    rpv=openmc.ZCylinder(r=226.75, boundary_type='vacuum')
+    coolant_cell=openmc.Cell(fill=water_mat, region=-coolant & +outer2_surf  & -top_surf & +bottom_surf )
+    barrel_cell=openmc.Cell(fill=steel_mat, region=-barrel & +coolant  & -top_surf & +bottom_surf )
+    coolant2_cell=openmc.Cell(fill=water_mat, region=-coolant2 & + barrel  & -top_surf & +bottom_surf )
+    rpv_cell=openmc.Cell(fill=steel_mat, region=-rpv & +coolant2 & -top_surf & +bottom_surf )
     materials.export_to_xml()
     params = GeometryParams()
     geometry=openmc.Geometry()
-    geometry.root_universe=openmc.Universe( universe_id=0, cells=[core_cell,])
+    geometry.root_universe=openmc.Universe( universe_id=0, cells=[core_cell, coolant_cell, barrel_cell, coolant2_cell, rpv_cell])
     settings=openmc.Settings()
     settings.temperature={'method': 'interpolation'}
     uniform_dist = stats.Box([-90, -90, -355 / 2], [90, 90, 355 / 2], only_fissionable=True)
@@ -110,9 +124,9 @@ if __name__ == "__main__":
     n_rate.scores = ['(n,2n)']
     tallies_file += (fiss_rate, abs_rate, n_rate)
     tallies_file.export_to_xml()
-    settings.batches = 100
+    settings.batches = 1000
     settings.particles = 80000
-    settings.inactive = 10
+    settings.inactive = 100
     #settings.trace=(1, 1, 25722)
     #settings.max_tracks = 1000
     #settings.tracks=[
@@ -145,9 +159,9 @@ if __name__ == "__main__":
 
 
 
-    colors = {water_mat: (32, 178, 170), water_mat1: (124, 252, 0), basket_mat: (1, 1, 1)}
+    colors = {water_mat: (32, 178, 170), water_mat1: (124, 252, 0), B4C_mat: (255, 255, 255)}
     color_data = dict(color_by='material', colors=colors)
-    width = np.array([24.6 *16, 24.6 * 16, ])
+    width = np.array([20 *16, 50 * 16, ])
     scale = 1
     fig, ax = plt.subplots(2, 2)
 
@@ -163,7 +177,7 @@ if __name__ == "__main__":
     plots = [openmc.Plot(), openmc.Plot(), openmc.Plot(), openmc.Plot(), ]
     for i in range(4):
         plots[i].width = width
-        plots[i].pixels = (10000, 10000)
+        plots[i].pixels = (5000, 5000)
         plots[i].basis = 'xz'
         plots[i].color_by = 'material'
         plots[i].colors = colors
