@@ -11,7 +11,7 @@ openmc.config['cross_sections']='/home/ann/PycharmProjects/endfb-vii.1-hdf5/cros
 
 
 import matplotlib.pyplot as plt
-from core import get_TVS_universe, basket_universe, top_surf, bottom_surf
+from core import get_TVS_universe, basket_universe
 from params import GeometryParams
 
 
@@ -72,23 +72,23 @@ if __name__ == "__main__":
     core_lat.pitch = [11*1.275*sqrt(3)]
     core_lat.outer = water2_universe
     core_lat.orientation = 'x'
-    #ring_1=[basket_universe]+[TVS_390GO]+[TVS_39AWU]*4+ [TVS_390GO] #42
-    #ring_1*=6
-    #ring_2=[TVS_30AV5] + [TVS_22AU] #36
-    #ring_2*=18
-    #ring_3=[TVS_22AU]+[TVS_13AU]*4 #30
-    #ring_3*=6
-    #ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU] +[TVS_30AV5] #24
-    #ring_4*=6
+    ring_1=[basket_universe]+[TVS_390GO]+[TVS_39AWU]*4+ [TVS_390GO] #42
+    ring_1*=6
+    ring_2=[TVS_30AV5] + [TVS_22AU] #36
+    ring_2*=18
+    ring_3=[TVS_22AU]+[TVS_13AU]*4 #30
+    ring_3*=6
+    ring_4=[TVS_13AU] + [TVS_30AV5] + [TVS_22AU] +[TVS_30AV5] #24
+    ring_4*=6
     ring_5= [TVS_22AU] + [TVS_13AU]+[TVS_13AU] #18
     ring_5*=6
     ring_6= [TVS_30AV5] + [TVS_22AU] #12
     ring_6*=6
     ring_7=[TVS_13AU]*6
     ring_8=[TVS_30AV5]
-    core_lat.universes = [ ring_5, ring_6, ring_7, ring_8]
+    core_lat.universes = [ring_1,  ring_2, ring_3, ring_4, ring_5, ring_6, ring_7, ring_8]
 
-    outer2_surf = openmc.model.HexagonalPrism(edge_length=3.7*core_lat.pitch[0], orientation='x', boundary_type='reflective')
+    outer2_surf = openmc.model.HexagonalPrism(edge_length=8*core_lat.pitch[0], orientation='x', boundary_type='white')
     core_cell = openmc.Cell(fill=core_lat, region=-outer2_surf & +bottom_surf & -top_surf)
     materials.export_to_xml()
     params = GeometryParams()
@@ -111,10 +111,10 @@ if __name__ == "__main__":
     tallies_file += (fiss_rate, abs_rate, n_rate)
     tallies_file.export_to_xml()
     settings.batches = 100
-    settings.particles = 50000
-    settings.inactive = 20
-    settings.trace=(1, 1, 25722)
-    settings.max_tracks = 1000
+    settings.particles = 80000
+    settings.inactive = 10
+    #settings.trace=(1, 1, 25722)
+    #settings.max_tracks = 1000
     #settings.tracks=[
     #    (1, 1, 28479),
     #    (1, 1, 24983)
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     #trace3=settings.trace=(1, 1, 20593)
     #settings_file+=(trace1, trace2, trace3)
     #trace_file.export_to_xml()
-    settings.max_lost_particles=200
+    settings.max_lost_particles=2000
     #settings.max_write_lost_particles
     #power = (3000.0e6)/163  # watts
     model = openmc.Model(geometry, materials, settings)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
 
 
-    colors = {water_mat: (32, 178, 170), water_mat1: (124, 252, 0)}
+    colors = {water_mat: (32, 178, 170), water_mat1: (124, 252, 0), basket_mat: (1, 1, 1)}
     color_data = dict(color_by='material', colors=colors)
     width = np.array([24.6 *16, 24.6 * 16, ])
     scale = 1
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     plots = [openmc.Plot(), openmc.Plot(), openmc.Plot(), openmc.Plot(), ]
     for i in range(4):
         plots[i].width = width
-        plots[i].pixels = (1000, 1000)
+        plots[i].pixels = (10000, 10000)
         plots[i].basis = 'xz'
         plots[i].color_by = 'material'
         plots[i].colors = colors
@@ -182,4 +182,4 @@ if __name__ == "__main__":
     geometry.export_to_xml()
     #model.export_to_xml('model.xml')
     openmc.plot_geometry()
-    openmc.run(tracks=True)
+    openmc.run()
